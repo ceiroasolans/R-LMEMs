@@ -1,1 +1,20 @@
-# R_LMEMs
+# Linear Mixed Effect Models
+
+#Theory: 
+
+Confirmatory hypothesis testing is an integral part of research, yet psychologists have not agreed about what philosophy should be the 'gold standard' for constructing their statistical models. Theoretical approaches consider the design of the study to determine which random effect components are used in the model, while data-driven approaches settle on the model that best describes the data. Choosing one or another is consequential: employing an inadequate random effect structure can inflate Types I and II error rates, potentially marking the difference between reporting a significant or non-significant effect. How should we structure our analyses?  
+
+Barr et al. (2013) argue that Linear Mixed Effects Models (LMEMs) should be kept maximal. Experiments are designed to detect fixed effects, so data-driven techniques may incorrectly reject random effects due to insufficient power. Instead, Barr et al. propose that statistical models should include *all* the random-effects structures that are justified by the study design. The general guideline is that random intercepts are needed whenever there is more than one observation per item (or subject), and random slopes are needed for situations in which there is more than one (Barr et al., 2013, p. 11). Where adequate, adding random intercepts increases power, and random slopes diminish Type I error rates (Barr et al., 2013, p. 11)--helping the overall experiment. Indeed, with the help of a Monte Carlo simulation, Barr et all showed that when compared to F1, F2, or intercept-only models, maximal LMEMs have similar power and results at worst, and lower error rates at best.  
+
+Meanwhile, Bates et al (2015) counter that models should be parsimonious. They suggest that using many different parameters in complex random effect structures can lead to singular covariance matrices and convergence failures not because the estimation algorithm is unideal, but because the data cannot support such a complex model (Bates et al., 2015). To minimize this possibility, Bates et al. provide a method to iteratively simplify maximal models. Once the model has been found to be degenerate, we must use a Principal Component Analysis (PCA) to identify and drop those variables that do not explain a substantial amount of variance on the fixed effects structure. Then, we must compare the models through an Analysis of Variance (ANOVA) to ensure the new model does not exhibit any changes in overall fit. To find the optimal model, we must iteratively repeat this process until all the insignificant terms have been dropped, and we are left only with random effects that explain a significant amount of variance.  
+
+Although scientific experiments occur in highly controlled environments, there are always variables that may exert a random influence on our dependent variables. To make sure that their influence is not making the difference between significant and non-significant results, we must construct our models in accordance with the way in which the experiment was designed. Constructing a maximum model is a good place to start, but there may be variables that do not capture a significant amount of variance in the fixed effects. Therefore, to adequately portray the relationships in our data, it is important that we prune these random effects until our statistical model expands on our experimental design by specifying which relationships are important within the experimental constrains, and which are extraneous. Barr et al, and Bates et al discuss two important principles in pursuing this fit, and by combining them, we can ensure that we have an optimal model for our data that is accurate, well-powered, and representative.   
+
+
+# References   
+
+Barr, D. J., Levy, R., Scheepers, C., & Tily, H. J. (2013). Random effects structure for confirmatory hypothesis testing: Keep it maximal. Journal of memory and language, 68(3), 255-278.  
+
+Bates, D., Sarkar, D., Bates, M. D., & Matrix, L. (2007). The lme4 package. R package version, 2(1), 74.  
+
+Bates, D., Kliegl, R., Vasishth, S., & Baayen, H. (2015). Parsimonious mixed models. arXiv preprint arXiv:1506.04967.  
