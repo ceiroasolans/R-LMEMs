@@ -1,0 +1,211 @@
+---
+title: "LMEMs"
+author: "Conrado"
+output: html_document
+---
+
+# 1. Data Preparation  
+
+## Read in the ViewPointInvarianceData.csv data  
+```{r}
+data = read.csv("ViewpointInvarianceData.csv")
+head(data)
+```
+The dependent variable in this data set is correct. No transformation is necessary because Correct has a binary outcome, and we do not need to transform the data. We're interested in the difference in frequency proportion, so given that it can be used for any probability of occurrence, we do not need the absolute value of frequency for correct or incorrect answers to be the same. Instead, we will simply have to specify in our generalized linear mixed model that the data we are employing is binomial.  
+
+
+
+
+# 2. Descriptives  
+
+## Plot the data fitting a second order polynomial to visualize how the dependent variable "correct" changes as a function of "rotation", split by the levels of "match" and "movable".   
+```{r}
+library(ggplot2)
+library(QuickEnvironment)
+
+#Aggregate and summarize
+agg <- aggregate(correct ~ rotation + match + movable + sub, data, mean) # Distance
+table <- summarySEwithin(data = agg, idvar = "sub", measurevar = "correct", withinvars = c("rotation", "match", "movable")) 
+
+#Transform to appropriate data types
+table$movable <- as.factor(table$movable)
+table$match <- as.factor(table$match)
+table$rotation <- as.numeric(table$rotation)
+table$correct <- as.numeric(table$correct)
+
+#Look at data summary
+library(psych)
+describe(table)
+```
+
+```{r}
+#Plot
+ggplot(table, aes(y=correct, x = rotation, color = match, group = match)) + 
+  geom_point() +
+  facet_grid(cols = vars(movable),labeller = labeller(movable = c('0' = 'Not Movable', '1' = 'Movable'))) +
+  stat_smooth(method = "lm", formula = y ~  poly(x, 2), size = 1) +
+  geom_errorbar(aes(ymin=correct-se, ymax= correct+se), width=.1, size=1)
+```
+
+
+## 2.2 Descriptive results    
+
+The largest influence on correctness appears to lie on the interaction between rotation and match. There was a positive parabolic relationship between marched objects and their rotation, such that the mid-level of rotation (180 degrees) was--on average--associated the lowest correct rates, and high and low levels of rotation with the highest correct rates. However, rotation seemed to exert no influence on mismatched objects, as they all had similar correct proportions throughout all rotation levels. Within mismatched objects, there was a higher standard error in unmovable objects due to an outlier in the second degree of rotation, but nothing that suggests overall significance. Mobility did not seem to influence any other patterns. Overall, participants seem to score best when there was a mismatch, and worst when there was a match and the rotation was in the mid-level (180 degrees) factor. 
+
+
+
+
+# 3. Analysis  
+
+# Run maximal mixed model for predicting the dependent variable "correct" as a function of "rotation", "match", and "movable". Rotation variable is of quadratic nature.
+```{r}
+library(lme4)
+#Maximum model 
+summary(model <- glmer(correct ~ poly(rotation,2) * match * movable +
+                       (1 + match * movable | sub) +
+                         (1 + match | imgID), 
+                        family =  "binomial", 
+                        data = data))
+```
+*It is not sensible to include movable as a random slope for items because every image depicts an object that is either movable or not, so it does not make sense to graph whether they vary in their sensitivity to object type.  
+
+The model failed to converge because the scaled gradient at the fitted (RE)ML estimates is too large. Variables like matchmismatch are explaining virtually none of the variance, and attaining almost perfect correlations.  
+
+```{r}
+# Evaluate model with rePCA
+PCA <- rePCA(model)
+summary(PCA)
+```
+Extracting the PCA of the random effects from the maximal model reveals that almost all variance in the random effects by image ID comes from the first component. Comparing this to the summary from the model reveals that this is the intercept between match and image ID. In the random structure by participant, almost all the variance comes from the first component, which is also the intercept between--this time between participant (sub) and the other random variables. 
+
+
+
+#Simplify the model by removing the interaction term for the by-participant random effects term 
+```{r}
+library(lme4)
+#Model 2: no interaction in by-participant random effects term 
+summary(m2 <- glmer(correct ~ poly(rotation,2) * match * movable +
+                       (1 + match + movable | sub) +
+                         (1 + match | imgID), 
+                        family =  "binomial", 
+                        data = data))
+```
+The model still doesn't converge. The max|grad value increased by approximately 15% (0.09 instead of 0.07).     
+
+
+```{r}
+# Evaluate model with rePCA
+PCA2 <- rePCA(m2)
+summary(PCA2)
+```
+The model is still degenerate. All of the variance is still attributed to the first component of each random structure, although the subject-related variance attributed to the intercept has decreased from 24% to 20%.    
+
+
+# Evaluate if the simplification is justified  
+```{r}
+#Compare both models
+anova(model, m2)
+```
+Removing the interaction term for the by-participant random effects did not cause a significant reduction in the model fit (*p* = .94), so the simplification is justified and should therefore be kept.      
+
+
+
+
+#Continue simplifying the model by reducing random effects components explaining the least variance until further simplification is not justified and I have selected the optimal model.   
+
+Movable explained the lowest amount of variance out of all the random structures specified in m2 (6%; closely followed by match [8%]), so I will begin by removing this term.   
+```{r}
+#Model 3: no 'movable' at all in by-participant random effects term 
+summary(m3 <- glmer(correct ~ poly(rotation,2) * match * movable +
+                       (1 + match | sub) +
+                         (1 + match | imgID), 
+                        family =  "binomial", 
+                        data = data))
+
+# Evaluate model with rePCA
+PCA3 <- rePCA(m3)
+summary(PCA3)
+
+#Compare both models
+anova(model, m3) #compare to original model to avoid becoming increasingly lax as we model out random factors
+```
+  
+Removing the movable term  did not cause a significant reduction in model fit (*p* = .99), so the simplification is justified. This time, the variable explaining the least variability was the by-participant match term. Therefore, we will get rid of the random slope added by match to the random intercept by participant (sub).   
+ 
+
+ 
+```{r}
+#Model 4: no random slope by match in by-participant random effects term 
+summary(m4 <- glmer(correct ~ poly(rotation,2) * match * movable +
+                         (1| sub) +
+                         (1 + match | imgID), 
+                        family =  "binomial", 
+                        data = data))
+
+# Evaluate model with rePCA
+PCA4 <- rePCA(m4)
+summary(PCA4)
+
+#Compare both models
+anova(model, m4) #compare to original model to avoid becoming increasingly lax as we model out random factors
+```
+   
+Removing the random match-slope in by-participant random effects did not significantly impact the model fit, so the simplification is justified. In this model, the variable explaining the least variability is the by-participant random intercept. However, it explains 19% of the variance, so it is likely that it will impact the fit. Let's give it a try: 
+ 
+ 
+```{r}
+#Model 5: no by-participant random effects term 
+summary(m5 <- glmer(correct ~ poly(rotation,2) * match * movable +
+                         (1 + match | imgID), 
+                        family =  "binomial", 
+                        data = data))
+
+# Evaluate model with rePCA
+PCA5 <- rePCA(m5)
+summary(PCA4)
+
+#Compare both models
+anova(model, m5) #compare to original model to avoid becoming increasingly lax as we model out random factors
+```
+   
+As expected, removing all by-participant random effects does cause a significant decrease in model fit (*p* = .001), so we must reject the change. However, the model is still not converging. 
+ 
+
+ 
+## Optimal model is still not converging? Use a more robust optimizer
+```{r}
+#Model 4.2: bobyqa as an optimizer
+summary(m4.2 <- glmer(correct ~ poly(rotation,2) * match * movable +
+                         (1| sub) +
+                         (1 + match | imgID), 
+                        family =  "binomial", 
+                        data = data, control = glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun=2e5))))
+```
+  
+Notice that even though the optimizer allows the model to converge, we still have a singular fit.   
+```{r}
+isSingular(m4.2, tol = 1e-4)
+```
+  
+Singular fits increase the chances of false positives, but there is no general consensus about how to deal with it. In line with Barr et al. (2013), I have chosen to simply keep the model maximal. 
+
+
+
+
+# 4. Output and interpretation  
+
+To investigate the role of word match, and object rotation and mobility on accuracy levels, I conducted a binomial generalized linear mixed model using the lme4 package (Bates, Maechler & Bolker, 2012). Following Barr et al.'s (2013) advice, I constructed a maximal model with rotation, match and movable were used as the fixed effects. For the random effects structure I employed  by-item random intercepts and slopes for match, and by-participant random intercepts and slopes for movable, match, and their interaction. I did not include by-item random slopes because in this experiment every item depicts an object that is either movable or is not, so it is not necessary to graph whether objects vary in slope.  
+
+The maximal model failed to converge. A Principal Component Analysis (PCA) revealed that some of the components explained a very small amount of variance in the dependent variable, so in order to find the best-fitting model, I proceeded to simplify the model in line with the methodology described by Bates et al. (2015). Keeping the fixed effect structure unaltered, I continued to drop the component that explained the least amount of variance until the model converged, or the new model produced a significantly worse fit than the original according to an ANOVA between both models, whichever came first. Specifically, I began by removing the by-participant interaction term between match and movable, then the whole by-participant movable term, followed by the by-participant random match slope, and finally the by-participant random intercept as well. However, this last change did produce a significant change in fit, indicating that the model simplification was not justified. Therefore, I established model 4 to be the optimal model. Nevertheless, model 4 had failed to converge because it had a large eigenvalue ratio, so I used the optimizer *bobyqa* with a high number of function evaluations. This allowed for a slower, quadratic approximation that was both more accurate and fitting to the quadratic nature of rotation.  
+
+After doing these modifications, the model successfully converged and found significant main effects for rotation and match on accuracy. Indeed, participants responded more accurately when they were given mismatched (as opposed to matched) pictures ($\beta$ = .95, *SE* = .23, *z* = 4.14, *p* < .001), and when the images were not rotated (($\beta$ = 24.49, *SE* = 8.49, *z* = 3.47, *p* < .001). Additionally, as initially suggested by the descriptive visual in section 2.1, there was a significant interaction between rotation and match ($\beta$ = -37.80, *SE* = 15.51, *z* = -2.44, *p* = .01), such that participants tended to be less accurate with mismatched words as the object they approached 180 degrees in rotation.  
+
+
+
+
+
+
+
+
+
+
