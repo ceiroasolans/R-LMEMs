@@ -1,6 +1,6 @@
 ---
 title: "LMEMs"
-author: "Conrado"
+author: "Conrado Eiroa-Solans"
 output: html_document
 ---
 
