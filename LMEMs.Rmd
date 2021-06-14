@@ -11,7 +11,7 @@ output: html_document
 data = read.csv("ViewpointInvarianceData.csv")
 head(data)
 ```
-The dependent variable in this data set is correct. No transformation is necessary because Correct has a binary outcome, and we do not need to transform the data. We're interested in the difference in frequency proportion, so given that it can be used for any probability of occurrence, we do not need the absolute value of frequency for correct or incorrect answers to be the same. Instead, we will simply have to specify in our generalized linear mixed model that the data we are employing is binomial.  
+The dependent variable in this data set is correct. No transformation is necessary because Correct has a binary outcome, so we're interested in the difference in frequency proportion. Given that this can be used for any probability of occurrence, we do not need the absolute value of frequency for correct or incorrect answers to be the same (the equivalent of normal distribution with binary outcomes). Instead, we will simply have to specify in our generalized linear mixed model that the data we are employing is binomial.  
 
 
 
